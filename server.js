@@ -4,6 +4,7 @@
 const express = require('express');
 const superagent = require('superagent');
 const cors = require('cors');
+const pg = require('pg');
 
 // get proect enviroment variables
 require('dotenv').config();
@@ -11,6 +12,17 @@ require('dotenv').config();
 // app constants
 const PORT = process.env.PORT;
 const app = express();
+
+//handle errors
+function handleError(err, res) {
+    console.error(err);
+    if (res) res.status(500).send('sorry, something broke.');
+  }
+
+//--------------------------TABLE CONFIG--------------------
+const client = new pg.client(process.env.DATABASE_UR);
+client.connect();
+client.on('error', err => console.error(err));
 
 // app middleware
 app.use(cors());
@@ -23,23 +35,19 @@ function Location(query, res) {
   this.latitude = res.body.results[0].geometry.location.lat;
   this.longitude = res.body.results[0].geometry.location.lng;
 }
-app.get('/location', (req, res) => {
-  // console.log('my request object: ', req);
-  searchToLatLng(req.query.data)
-    .then(location => res.send(location))
-    .catch(error => handleError(error, res));
-});
+
+app.get('/location', (getLocation);
 
 // helper function
-function searchToLatLng(query) {
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`; return superagent
-  //return superagent.get(url) compare line below
-    .get(url)
-    .then(res => {
-      return new Location(query, res);
-    })
-    .catch(error => handleError(error));
-}
+// function searchToLatLng(query) {
+//   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`; return superagent
+//   //return superagent.get(url) compare line below
+//     .get(url)
+//     .then(res => {
+//       return new Location(query, res);
+//     })
+//     .catch(error => handleError(error));
+// }
 
 // -------------------------WEATHER-------------------------
 function Weather(day) {
