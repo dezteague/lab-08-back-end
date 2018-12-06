@@ -87,7 +87,7 @@ function getReview(req, res) {
   superagent.get(url)
     .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
     .then(result => {
-      const getReview = result.body.items.map(item => {
+      const getReview = result.body.businesses.map(item => {
         return new Yelp(item);
       });
       res.send(getReview);
