@@ -1,16 +1,14 @@
-DROP TABLE IF EXISTS locations;
+
 DROP TABLE IF EXISTS weathers;
+DROP TABLE IF EXISTS locations;
 DROP TABLE IF EXISTS yelps;
-DROP TABLE IF EXISTS movies;
-DROP TABLE IF EXISTS
-DROP TABLE IF EXISTS
 
 CREATE TABLE locations (
   id SERIAL PRIMARY KEY,
   search_query VARCHAR(255),
   formatted_query VARCHAR(255),
-  latitude NUMERIC(8,6),
-  longitude NUMERIC(9,6)
+  latitude NUMERIC(8, 6),
+  longitude NUMERIC(9, 6)
 );
 
 CREATE TABLE weathers (
@@ -18,7 +16,7 @@ CREATE TABLE weathers (
   forecast VARCHAR(255),
   time VARCHAR(255),
   location_id INTEGER NOT NULL,
-  FOREIGN KEY (location_id) REFERENCE locations (id)
+  FOREIGN KEY (location_id) REFERENCES locations (id)
 );
 
 CREATE TABLE yelps (
@@ -26,8 +24,8 @@ CREATE TABLE yelps (
   name VARCHAR(255),
   url VARCHAR(255),
   image_url (255),
-  rating NUMERIC(),
-  price NUMERIC(),
+  rating NUMERIC(255),
+  price NUMERIC(255),
   location_id INTEGER NOT NULL,
   FOREIGN KEY (location_id) REFERENCE locations (id)
 );
@@ -38,9 +36,9 @@ CREATE TABLE movies (
   image_url (255),
   overview VARCHAR(255),
   popularity VARCHAR(255),
-  average_votes NUMERIC(),
-  total_votes NUMERIC(),
+  average_votes NUMERIC(255),
+  total_votes NUMERIC(255),
   released_on VARCHAR(255),
   location_id INTEGER NOT NULL,
   FOREIGN KEY (location_id) REFERENCE locations (id)
-)
+);
