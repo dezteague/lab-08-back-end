@@ -6,6 +6,9 @@ const superagent = require('superagent');
 const cors = require('cors');
 const pg = require('pg');
 
+// app.use(express.urlencoded({ extended: true }));s
+
+
 // get proect enviroment variables
 require('dotenv').config();
 
@@ -27,6 +30,16 @@ client.on('error', err => console.error(err));
 // app middleware
 app.use(cors());
 
+
+//API route
+app.get('/location', getLocation);
+// //api route
+app.get('/movies', getMovie)
+//API route
+app.get('/weather', getWeather);
+//api route
+app.get('/yelp', getReview);
+
 // -------------------------LOCATION-------------------------
 //location constructor - maps model to schema
 //Referencing the data from the json files that will include longitude and latitude
@@ -36,9 +49,6 @@ function Location(query, data) {
   this.latitude = data.geometry.location.lat;
   this.longitude = data.geometry.location.lng;
 }
-
-//API route
-app.get('/location', getLocation);
 
 function getLocation(req, res) {
   const locationHandler = {
@@ -108,9 +118,6 @@ function Weather(day) {
   this.time = new Date(day.time * 1000).toString().slice(0, 15);
 }
 
-//API route
-app.get('/weather', getWeather);
-
 // helper function
 function getWeather(req, res) {
   const weatherHandler = {
@@ -171,9 +178,6 @@ function Yelp(items) {
   this.rating = items.rating;
   this.price = items.price;
 }
-
-//api route
-app.get('/yelp', getReview);
 
 // helper function
 function getReview(req, res) {
@@ -239,9 +243,6 @@ function Movie(movie) {
   this.released_on = movie.released_on;
 }
 
-//api route
-app.get('/movies', getMovie)
-
 // helper function
 function getMovie(req, res) {
   const movieHandler = {
@@ -250,7 +251,7 @@ function getMovie(req, res) {
       res.send(result.rows);
     },
     cacheMiss: function() {
-      Yelp.fetch(req.query.data)
+      Movie.fetch(req.query.data)
         .then( results => res.send(results))
         .catch(console.error);
     },
@@ -259,7 +260,7 @@ function getMovie(req, res) {
   Movie.lookup(movieHandler);
 }
 //save method
-Yelp.prototype.save = function(id) {
+Movie.prototype.save = function(id) {
   const SQL = `INSERT INTO movies (title,image_url,overview,popularity,average_votes,total_votes,released_on) VALUES ($1,$2,$3,$4,$5,$6,$7);`;
   const values = Object.values(this);
   values.push(id);
@@ -285,7 +286,8 @@ Movie.fetch = function(location) {
   const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${location.search_query}`;
   return superagent.get(url)
     .then(result => {
-      const movieSummary = result.body.data.map(movie => {
+      console.log('movies results', result.body.results);
+      const movieSummary = result.body.results.map(movie => {
         const summary = new Movie(movie);
         summary.save(location.id);
         return summary;
