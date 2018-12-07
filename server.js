@@ -15,12 +15,12 @@ const app = express();
 
 //handle errors
 function handleError(err, res) {
-    console.error(err);
-    if (res) res.status(500).send('sorry, something broke.');
-  }
+  console.error(err);
+  if (res) res.status(500).send('sorry, something broke.');
+}
 
 //--------------------------TABLE CONFIG--------------------
-const client = new pg.client(process.env.DATABASE_URL);
+const client = new pg.Client(process.env.DATABASE_URL);
 client.connect();
 client.on('error', err => console.error(err));
 
@@ -38,67 +38,67 @@ function Location(query, data) {
 }
 
 //API route
-app.get('/location', (findLocation);
+app.get('/location', getLocation);
 
-function findLocation(req, res) {
-    const locationHandler = {
-        query: req.query.data,
-        cacheHit: (results) => {
-            res.send(results.rows[0]);
-        },
-        cacheMiss: () => {
-            Location.fetchlocation(req.query.data)
-            .then (data => res.send(data));
-        },
-    };
-    Location.lookupLocation(locationHandler);
+function getLocation(req, res) {
+  const locationHandler = {
+    query: req.query.data,
+    cacheHit: (results) => {
+      res.send(results.rows[0]);
+    },
+    cacheMiss: () => {
+      Location.fetchlocation(req.query.data)
+        .then (data => res.send(data));
+    },
+  };
+  Location.lookupLocation(locationHandler);
 }
 
 //save location to database
 Location.prototype.save = function () {
-    let SQL = `
+  let SQL = `
     INSERT INTO locations
     (search_query,formatted_query,latitude,longitude)
     VALUES ($1,$2,$3,$4)
     RETURNING id
     `;
-    let values = Object.values(this);
-    return client.query(SQL, values);
-}
+  let values = Object.values(this);
+  return client.query(SQL, values);
+};
 
 //fetch location from api and save to DB
 Location.fetchlocation = (query) => {
-    const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
-    return superagent.get(_URL)
+  const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
+  return superagent.get(_URL)
     .then(data => {
-        if (!data.body.results.length) {throw 'No Data';}
-        else {
-            //create and save instance
-            let location = new Location(query, data.body.results[0]);
-            return location.save()
-                .then ( result => {
-                    location.id = result.rows[0].id
-                    return location;
-                })
-            return location;    
-        }
+      if (!data.body.results.length) {throw 'No Data';}
+      else {
+        //create and save instance
+        let location = new Location(query, data.body.results[0]);
+        return location.save()
+          .then ( result => {
+            location.id = result.rows[0].id
+            return location;
+          })
+        // return location;
+      }
     });
 };
 
 //find location in the database
 Location.lookupLocation=(handler) => {
-    const SQL = `SELECT * FROM locations WHERE search_query=$1`;
-    const values = [handler.query];
-    return client.query( SQL, values)
-        .then( results => {
-            if (results.rowCount > 0) {
-                handler.cacheHit(results);
-            }   
-            else {
-                handler.cacheMiss();
-            }
-        })
-        .catch( console.error );
+  const SQL = `SELECT * FROM locations WHERE search_query=$1`;
+  const values = [handler.query];
+  return client.query( SQL, values)
+    .then( results => {
+      if (results.rowCount > 0) {
+        handler.cacheHit(results);
+      }
+      else {
+        handler.cacheMiss();
+      }
+    })
+    .catch( console.error );
 };
 
 // -------------------------WEATHER-------------------------
@@ -114,7 +114,7 @@ app.get('/weather', getWeather);
 // helper function
 function getWeather(req, res) {
   const weatherHandler = {
-    location: req.query.data, 
+    location: req.query.data,
     cacheHit: function(result) {
       res.send(result.rows);
     },
@@ -126,48 +126,42 @@ function getWeather(req, res) {
   };
 
   Weather.lookup(weatherHandler);
+}
+//save method
+Weather.prototype.save = function(id) {
+  const SQL = `INSERT INTO weathers (forecast,time,location_id) VALUES ($1,$2,$3);`;
+  const values = Object.values(this);
+  values.push(id);
+  client.query(SQL, values);
+};
 
-  //save method
-  Weather.prototype.save = function(id) {
-    const SQL = `INSERT INTO weathers (forecast,time,location_id) VALUES ($1,$2,$3);`;
-    const values = Object.values(this);
-    values.push(id);
-    client.query(SQL, values);
-  };
+//lookup method
+Weather.lookup = function(handler) {
+  const SQL = `SELECT * FROM weathers WHERE location_id=$1;`;
+  client.query(SQL, [handler.location.id])
+    .then(result => {
+      if (result.rowCount > 0) {
+        handler.cacheHit(result);
+      } else {
+        handler.cacheMiss();
+      }
+    })
+    .catch(error => handleError(error));
+};
 
-  //lookup method
-  Weather.lookup = function(handler) {
-    const SQL = `SELECT * FROM weathers WHERE location_id=$1;`;
-    client.query(SQL, [handler.location.id])
-      .then(result => {
-        if (result.rowCount > 0) {
-          handler.cacheHit(result);
-        } else {
-            handler.cacheMiss();
-          }
-        })
-       .catch(error => handleError(error));
-  };
-
-  //fetch method
-  Weather.fetch = function(location) {
-    const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${req.query.data.latitude},${req.query.data.longitude}`;
-    return superagent.get(url)
-      .then(result => {
-        const weatherSummaries= result.body.daily.data.map(day =>{
-          summary.save(location.id);
-          return summary;
-        });
-        return weatherSummaries;
+//fetch method
+Weather.fetch = function(location) {
+  const url = `https://api.darksky.net/forecast/${process.env.WEATHER_API_KEY}/${location.latitude},${location.longitude}`;
+  return superagent.get(url)
+    .then(result => {
+      const weatherSummaries= result.body.daily.data.map(day =>{
+        const summary = new Weather (day);
+        summary.save(location.id);
+        return summary;
       });
-  };
-}
-
-// the client will recieve an error message upon status error 500
-function handleError(err, res) {
-  console.error(err);
-  if (res) res.satus(500).send('Sorry, something broke');
-}
+      return weatherSummaries;
+    });
+};
 
 // -------------------------YELP-------------------------
 function Yelp(items) {
@@ -196,43 +190,43 @@ function getReview(req, res) {
   };
 
   Yelp.lookup(yelpHandler);
+}
+//save method
+Yelp.prototype.save = function(id) {
+  const SQL = `INSERT INTO yelps (name,url,image_url,rating,price) VALUES ($1,$2,$3,$4,$5);`;
+  const values = Object.values(this);
+  values.push(id);
+  client.query(SQL, values);
+};
 
-  //save method
-  Yelp.prototype.save = function(id) {
-    const SQL = `INSERT INTO yelps (name,url,image_url,rating,price) VALUES ($1,$2,$3,$4,$5);`;
-    const values = Object.values(this);
-    values.push(id);
-    client.query(SQL, values);
-  };
+//lookup method
+Yelp.lookup = function(handler) {
+  const SQL = `SELECT * FROM yelps WHERE name=$1;`;
+  client.query(SQL, [handler.location.id])
+    .then(result => {
+      if (result.rowCount > 0) {
+        handler.cacheHit(result);
+      } else {
+        handler.cacheMiss();
+      }
+    })
+    .catch(error => handleError(error));
+};
 
-  //lookup method
-  Yelp.lookup = function(handler) {
-    const SQL = `SELECT * FROM yelps WHERE name=$1;`;
-    client.query(SQL, [handler.location.id])
-      .then(result => {
-        if (result.rowCount > 0) {
-          handler.cacheHit(result);
-        } else {
-            handler.cacheMiss();
-          }
-        })
-       .catch(error => handleError(error));
-  };
-
-  //fetch method
-  Yelp.fetch = function(location) {
-    const url = `https://api.yelp.com/v3/businesses/search?location=${req.query.data.search_query}/${req.query.data.latitude},${req.query.data.longitude}`;
-    return superagent.get(url)
-      .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
-      .then(result => {
-        const yelpSummary = result.body.businesses.map(item => {
-          const summary = new Yelp(item)
-          summary.save(location.id);
-          return summary;
-        });
-        return yelpSummary;
+//fetch method
+Yelp.fetch = function(location) {
+  const url = `https://api.yelp.com/v3/businesses/search?location=${location.latitude},${location.longitude}`;
+  return superagent.get(url)
+    .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
+    .then(result => {
+      const yelpSummary = result.body.businesses.map(item => {
+        const summary = new Yelp(item)
+        summary.save(location.id);
+        return summary;
       });
-  };
+      return yelpSummary;
+    });
+};
 
 // -------------------------MOVIES-------------------------
 function Movie(movie) {
@@ -263,43 +257,43 @@ function getMovie(req, res) {
   };
 
   Movie.lookup(movieHandler);
+}
+//save method
+Yelp.prototype.save = function(id) {
+  const SQL = `INSERT INTO movies (title,image_url,overview,popularity,average_votes,total_votes,released_on) VALUES ($1,$2,$3,$4,$5,$6,$7);`;
+  const values = Object.values(this);
+  values.push(id);
+  client.query(SQL, values);
+};
 
-  //save method
-  Yelp.prototype.save = function(id) {
-    const SQL = `INSERT INTO movies (title,image_url,overview,popularity,average_votes,total_votes,released_on) VALUES ($1,$2,$3,$4,$5,$6,$7);`;
-    const values = Object.values(this);
-    values.push(id);
-    client.query(SQL, values);
-  };
+//lookup method
+Movie.lookup = function(handler) {
+  const SQL = `SELECT * FROM movies WHERE title=$1;`;
+  client.query(SQL, [handler.location.id])
+    .then(result => {
+      if (result.rowCount > 0) {
+        handler.cacheHit(result);
+      } else {
+        handler.cacheMiss();
+      }
+    })
+    .catch(error => handleError(error));
+};
 
-  //lookup method
-  Movie.lookup = function(handler) {
-    const SQL = `SELECT * FROM movies WHERE title=$1;`;
-    client.query(SQL, [handler.location.id])
-      .then(result => {
-        if (result.rowCount > 0) {
-          handler.cacheHit(result);
-        } else {
-            handler.cacheMiss();
-          }
-        })
-       .catch(error => handleError(error));
-  };
-
-  //fetch method
-  Movie.fetch = function(location) {
-    const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${req.query.data.search_query}`;
-    return superagent.get(url)
-      .then(result => {
-        const movieSummary = result.body.data.map(movie => {
-          const summary = new Movie(movie);
-          summary.save(location.id);
-          return summary;
-        });
-        return movieSummary;
+//fetch method
+Movie.fetch = function(location) {
+  const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${location.search_query}`;
+  return superagent.get(url)
+    .then(result => {
+      const movieSummary = result.body.data.map(movie => {
+        const summary = new Movie(movie);
+        summary.save(location.id);
+        return summary;
       });
-  };
+      return movieSummary;
+    });
+};
 
 app.listen(PORT, () => {
   console.log(`listening on ${PORT}`);
-})
+});
