@@ -20,7 +20,7 @@ function handleError(err, res) {
   }
 
 //--------------------------TABLE CONFIG--------------------
-const client = new pg.client(process.env.DATABASE_UR);
+const client = new pg.client(process.env.DATABASE_URL);
 client.connect();
 client.on('error', err => console.error(err));
 
@@ -37,6 +37,7 @@ function Location(query, data) {
   this.longitude = data.geometry.location.lng;
 }
 
+//API route
 app.get('/location', (findLocation);
 
 function findLocation(req, res) {
@@ -107,6 +108,7 @@ function Weather(day) {
   this.time = new Date(day.time * 1000).toString().slice(0, 15);
 }
 
+//API route
 app.get('/weather', getWeather);
 
 // helper function
@@ -167,10 +169,6 @@ function handleError(err, res) {
   if (res) res.satus(500).send('Sorry, something broke');
 }
 
-app.listen(PORT, () => {
-  console.log(`listening on ${PORT}`);
-});
-
 // -------------------------YELP-------------------------
 function Yelp(items) {
   this.name = items.name;
@@ -179,6 +177,8 @@ function Yelp(items) {
   this.rating = items.rating;
   this.price = items.price;
 }
+
+//api route
 app.get('/yelp', getReview);
 
 // helper function
@@ -225,12 +225,12 @@ function getReview(req, res) {
     return superagent.get(url)
       .set('Authorization', `Bearer ${process.env.YELP_API_KEY}`)
       .then(result => {
-        const getReview = result.body.businesses.map(item => {
+        const yelpSummary = result.body.businesses.map(item => {
           const summary = new Yelp(item)
           summary.save(location.id);
           return summary;
         });
-        return getReview;
+        return yelpSummary;
       });
   };
 
@@ -245,6 +245,7 @@ function Movie(movie) {
   this.released_on = movie.released_on;
 }
 
+//api route
 app.get('/movies', getMovie)
 
 // helper function
@@ -261,7 +262,7 @@ function getMovie(req, res) {
     },
   };
 
-  Yelp.lookup(movieHandler);
+  Movie.lookup(movieHandler);
 
   //save method
   Yelp.prototype.save = function(id) {
@@ -272,7 +273,7 @@ function getMovie(req, res) {
   };
 
   //lookup method
-  Yelp.lookup = function(handler) {
+  Movie.lookup = function(handler) {
     const SQL = `SELECT * FROM movies WHERE title=$1;`;
     client.query(SQL, [handler.location.id])
       .then(result => {
@@ -290,11 +291,15 @@ function getMovie(req, res) {
     const url = `https://api.themoviedb.org/3/search/movie?api_key=${process.env.MOVIE_API_KEY}&query=${req.query.data.search_query}`;
     return superagent.get(url)
       .then(result => {
-        const getMovie = result.body.data.map(movie => {
+        const movieSummary = result.body.data.map(movie => {
           const summary = new Movie(movie);
           summary.save(location.id);
           return summary;
         });
-        return getMovie;
+        return movieSummary;
       });
   };
+
+app.listen(PORT, () => {
+  console.log(`listening on ${PORT}`);
+})
