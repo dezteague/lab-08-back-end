@@ -71,7 +71,7 @@ Location.fetchlocation = (query) => {
   const _URL = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${process.env.GEOCODE_API_KEY}`;
   return superagent.get(_URL)
     .then(data => {
-      if (!data.body.results.length) {throw 'No Data';}
+      if (! data.body.results.length) {throw 'No Data';}
       else {
         //create and save instance
         let location = new Location(query, data.body.results[0]);
